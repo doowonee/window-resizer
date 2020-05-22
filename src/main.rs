@@ -5,7 +5,7 @@ use winapi::shared::minwindef::LPARAM;
 // use winapi::um::winuser::WNDENUMPROC;
 use winapi::shared::minwindef::BOOL;
 use std::ptr::null_mut;
-use winapi::um::winuser::{EnumDesktopWindows, GetWindowTextA};
+use winapi::um::winuser::{EnumDesktopWindows, GetWindowTextA, GetForegroundWindow};
 
 unsafe extern "system" fn callback(handle: HWND, _params: LPARAM) -> BOOL {
     let name = Vec::with_capacity(1024); 
@@ -29,6 +29,15 @@ fn listing_windows() -> Result<i32, Error> {
     else { Ok(ret) }
 }
 
+unsafe fn show_currnet_window_info() {
+    let name = Vec::with_capacity(1024); 
+    let ptr = name.as_ptr();
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getactivewindow
+    let handle = GetForegroundWindow();
+    let return_value = GetWindowTextA(handle , ptr as *mut i8, 1024);
+    println!("#@ foreground 윈도우: {:?}-{:?}:{:?}", handle, CStr::from_ptr(ptr), return_value);
+}
+
 fn main() {
     // if OS is not Windows then terminate the program.
     if cfg!(not(windows)) {
@@ -36,5 +45,6 @@ fn main() {
         std::process::exit(0x01);
     }
 
-    listing_windows().unwrap();
+    unsafe { show_currnet_window_info(); }
+    // listing_windows().unwrap();
 }
