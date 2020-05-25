@@ -9,15 +9,16 @@ use winapi::um::winuser::{EnumDesktopWindows, GetWindowTextW, IsWindowVisible};
 use std::slice;
 use std::os::windows::prelude::*;
 
-unsafe extern "system" fn callback(handle: HWND, _params: LPARAM) -> BOOL {
-    let name = Vec::with_capacity(1024); 
+unsafe extern "system" fn cb_window_found(handle: HWND, _params: LPARAM) -> BOOL {
+    const BUFF_SIZE: usize = 1024;
+    let name = Vec::with_capacity(BUFF_SIZE); 
     let ptr = name.as_ptr();
-    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowtexta
-    let return_value = GetWindowTextW(handle, ptr as *mut u16, 1024);
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowtextw
+    let length = GetWindowTextW(handle, ptr as *mut u16, BUFF_SIZE as i32);
     // https://docs.microsoft.com/ko-kr/windows/win32/api/winuser/nf-winuser-iswindowvisible?redirectedfrom=MSDN
-    if return_value > 0 && IsWindowVisible(handle) != 0 {
+    if length > 0 && IsWindowVisible(handle) != 0 {
         // filter windows through has window's title bar and is visible
-        let slice = slice::from_raw_parts(ptr, return_value as usize);
+        let slice = slice::from_raw_parts(ptr, length as usize);
         println!("#@ callback from EnumDesktopWindows: {:?}-{:?}", handle, OsString::from_wide(slice));
     }
     1 as BOOL
@@ -30,7 +31,7 @@ fn listing_windows() -> Result<i32, Error> {
     // let wide: Vec<u16> = OsStr::new(msg).encode_wide().chain(once(0)).collect();
     let ret = unsafe {
         // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdesktopwindows
-        EnumDesktopWindows(null_mut(), Some(callback), 0 as LPARAM)
+        EnumDesktopWindows(null_mut(), Some(cb_window_found), 0 as LPARAM)
     };
     if ret == 0 { Err(Error::last_os_error()) }
     else { Ok(ret) }
