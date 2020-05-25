@@ -5,12 +5,13 @@ use winapi::shared::minwindef::LPARAM;
 // use winapi::um::winuser::WNDENUMPROC;
 use winapi::shared::minwindef::BOOL;
 use std::ptr::null_mut;
-use winapi::um::winuser::{EnumDesktopWindows, GetWindowTextW, IsWindowVisible};
+use winapi::um::winuser::{EnumDesktopWindows, GetWindowTextW, IsWindowVisible, GetTopWindow, GetWindow, GW_HWNDNEXT};
 use std::slice;
 use std::os::windows::prelude::*;
 
+const BUFF_SIZE: usize = 1024;
+
 unsafe extern "system" fn cb_window_found(handle: HWND, _params: LPARAM) -> BOOL {
-    const BUFF_SIZE: usize = 1024;
     let name = Vec::with_capacity(BUFF_SIZE); 
     let ptr = name.as_ptr();
     // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowtextw
@@ -37,6 +38,23 @@ fn listing_windows() -> Result<i32, Error> {
     else { Ok(ret) }
 }
 
+unsafe fn walk_windows() {
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-gettopwindow
+    let mut window = GetTopWindow(null_mut());
+
+    while !window.is_null() {
+        let name = Vec::with_capacity(BUFF_SIZE); 
+        let ptr = name.as_ptr();
+        let length = GetWindowTextW(window, ptr as *mut u16, BUFF_SIZE as i32);
+        if length > 0 && IsWindowVisible(window) != 0 {
+            let slice = slice::from_raw_parts(ptr, length as usize);
+            println!("#@ window title: {:?}", OsString::from_wide(slice));
+        }
+        // https://docs.microsoft.com/ko-kr/windows/win32/api/winuser/nf-winuser-getwindow
+        window = GetWindow(window, GW_HWNDNEXT);
+    }
+}
+
 fn main() {
     // if OS is not Windows then terminate the program.
     if cfg!(not(windows)) {
@@ -44,6 +62,7 @@ fn main() {
         std::process::exit(0x01);
     }
 
-    // unsafe { show_currnet_window_info(); }
     listing_windows().unwrap();
+    println!("------- #@ walk 방식 -------");
+    unsafe { walk_windows(); }
 }
